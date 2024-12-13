@@ -1,0 +1,68 @@
+# Booth's algorithm
+# x1 = result (final product) = rd
+# x2 = multiplier (Q) = rs1
+# x3 = multiplicand (M) = rs2
+# x4 = counter (n)
+# x5 = partial product (PP)
+# x6 = current bit (Q0)
+# x7 = next lower bit (Q-1)
+
+    # Initialise
+    ADDI x5, x0, 0          # PP = 0 (clear partial product)
+    ADDI x4, x0, 16         # counter = 16 (maximum number of bits for registers)
+    
+    # Shift Q so initial current bit is 0 
+    SLLI x2, x2, 1          # Shift Q left once
+    ANDI x6, x2, 1          # Get the current bit of the multiplier (Q0)
+    
+    # Load next lower bit with the current least significant bit 
+    SRLI x7, x2, 1          # Shift Q right once and store result in Q-1
+    ANDI x7, x7, 1          # Mask all bits but LSB which is Q-1 at the start
+    
+# Test the current and next lower bit of the multiplier
+mainLoop:
+    # Check for counter, if it's 0, finish
+    BEQ x4, x0, loadResult        # If counter is equal to 0 load result
+     
+    # If Q0 and Q-1 are the same, do nothing 
+    BEQ x6, x7, noOperation       # If Q0 is equal to Q-1, do nothing
+
+    # If Q0 == 0 and Q-1 == 1, subtract M from PP 
+    BEQ x6, x0, subtractM   # Already know Q0 and Q1 aren't equal so only check Q0 
+
+    # If Q0 == 1 and Q-1 == 0, add M to PP 
+    BEQ x7, x0, addM   # Already know Q0 and Q1 aren't equal so only check Q-1
+
+addM:
+    ADD x5, x5, x3          # PP = PP + M
+    SLLI x3, x3, 1          # Shift M left by 1 bit to align with PP rather than shifting PP   
+    JAL x0, updateRegisters       # Jump to the shift step
+
+subtractM:
+    SUB x5, x5, x3          # PP = PP - M
+    SLLI x3, x3, 1          # Shift M left by 1 bit to align with PP rather than shifting PP 
+    JAL x0, updateRegisters       # Jump to the shift step
+
+noOperation:
+    # No operation, just shift M
+    SLLI x3, x3, 1          # Shift M left by 1 bit to align with PP rather than shifting PP 
+
+updateRegisters:
+    
+    # Shift Q to the right by 1, and update x6 and x7
+    SRLI x2, x2, 1          # Shift Q to the right by 1 (Q = Q >> 1)
+    
+    # Update Q-1 to hold the new next lower bit of Q
+    SRLI x7, x2, 1          # Shift Q right once and store result in Q-1
+    ANDI x7, x7, 1          # Mask all bits but LSB
+    
+    # Update Q0 to hold the new current bit of Q
+    ANDI x6, x2, 1          # Store LSB in Q0
+    
+    # Decrement the cycle counter 
+    ADDI x4, x4, -1         # x4 = x4 - 1
+    JAL x0, mainLoop              # Jump back to loop
+
+loadResult:
+    # Store partial product in result register
+    ADD x1, x5, x0          # x1 = PP (final product)
